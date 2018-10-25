@@ -2,50 +2,32 @@
 #pull centos image from docker hub
 FROM centos
 
-
-ENV JAVA_VERSION 8u31
-ENV BUILD_VERSION b13
-
 #setting up wget package manager so that we can install java
-
 RUN yum -y upgrade
 RUN yum -y install wget
 
 
-# Downloading & Config Java 8
+# Downloading Java 
 RUN wget --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/11.0.1+13/90cf5d8f270a4347a95050320eef3fb7/jdk-11.0.1_linux-x64_bin.rpm" -O jdk-11.0.1_linux-x64_bin.rpm
 
-
+#installing java
 RUN yum -y install jdk-11.0.1_linux-x64_bin.rpm
-RUN alternatives --install /usr/bin/java jar /usr/java/latest/bin/java 200000
-RUN alternatives --install /usr/bin/javaws javaws /usr/java/latest/bin/javaws 200000
-RUN alternatives --install /usr/bin/javac javac /usr/java/latest/bin/javac 200000
 
+#installing tomcat 
+WORKDIR /usr/local
+RUN wget http://www-us.apache.org/dist/tomcat/tomcat-9/v9.0.12/bin/apache-tomcat-9.0.12.tar.gz
+RUN tar -xvf apache-tomcat-9.0.12.tar.gz
+RUN mv apache-tomcat-9.0.12 tomcat
+RUN echo "export CATALINA_HOME="/usr/local/tomcat"" >> ~/.bashrc
+RUN source ~/.bashrc
 
+#configuration changes required to manage tomcat - such as login screen of tomcat
+ADD tomcat-users.xml /usr/local/tomcat/conf/
+ADD context.xml /usr/local/tomcat/webapps/manager/META-INF/
 
-RUN wget http://mirror.cogentco.com/pub/apache/tomcat/tomcat-8/v8.0.53/bin/apache-tomcat-8.0.53-deployer.tar.gz
+#deploying the spring application into tomcat
+ADD /maven/elms-matter.war /usr/local/tomcat/webapps/elms-matter.war
 
-# untar and move to proper location
-RUN gunzip apache-tomcat-8.0.53-deployer.tar.gz
-RUN tar xvf apache-tomcat-8.0.53-deployer.tar
-RUN mv apache-tomcat-8.0.53-deployer /opt/tomcat8
-RUN chmod -R 755 /opt/tomcat8
-
-ENV JAVA_HOME /opt/jdk1.8.0_53
-
-EXPOSE 8088
-
-CMD /opt/tomcat8/bin/catalina.sh run
-
-
-#install Spring Boot artifact
-#WORKDIR /
-#ADD /maven/elm-matter.war elm-matter.war
-
-
-#EXPOSE 8088
-
-#CMD javaw - jar elm-matter.jar
-#ENTRYPOINT ["java","-jar","elm-matter.jar"]
-
-
+#starting up and running the tomcat service
+WORKDIR /usr/local/tomcat/bin
+CMD ["./catalina.sh", "run"]
